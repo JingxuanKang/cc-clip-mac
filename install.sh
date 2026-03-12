@@ -2,7 +2,8 @@
 # cc-clip-mac installer
 # Usage: ./install.sh <ssh-host>
 #
-# Must be run from the cloned repo directory (needs bin/ and osascript-shim.sh).
+# Must be run from the cloned repo directory.
+# Requires: Go 1.25+, Homebrew (for pngpaste)
 
 set -e
 
@@ -31,36 +32,33 @@ step()  { echo -e "\n${CYAN}[$1/$TOTAL_STEPS]${NC} $2"; }
 
 TOTAL_STEPS=6
 
-# ─── Detect platform ───
-
-detect_arch() {
-    local arch
-    arch=$(uname -m)
-    case "$arch" in
-        x86_64|amd64) echo "amd64" ;;
-        arm64|aarch64) echo "arm64" ;;
-        *) error "Unsupported architecture: $arch" ;;
-    esac
-}
-
 # ─── Verify repo structure ───
 
-[ -f "$SCRIPT_DIR/osascript-shim.sh" ] || error "osascript-shim.sh not found. Run this script from the cloned repo directory."
-[ -d "$SCRIPT_DIR/bin" ] || error "bin/ directory not found. Run this script from the cloned repo directory."
+[ -f "$SCRIPT_DIR/osascript-shim.sh" ] || error "osascript-shim.sh not found. Run from the cloned repo directory."
+[ -d "$SCRIPT_DIR/cc-clip" ] || error "cc-clip/ source directory not found. Run from the cloned repo directory."
 
-# ─── Step 1: Install cc-clip (local clipboard daemon) ───
+# ─── Step 1: Build and install cc-clip daemon ───
 
-step 1 "Installing local clipboard daemon..."
+step 1 "Building and installing cc-clip daemon..."
 
 if command -v cc-clip >/dev/null 2>&1; then
     info "cc-clip already installed: $(which cc-clip)"
 else
-    ARCH=$(detect_arch)
-    BINARY="$SCRIPT_DIR/bin/cc-clip-darwin-${ARCH}"
-    [ -f "$BINARY" ] || error "Binary not found: $BINARY"
+    # Check Go is available
+    if ! command -v go >/dev/null 2>&1; then
+        error "Go is required to build cc-clip. Install it: https://go.dev/dl/ or brew install go"
+    fi
+    info "Go $(go version | awk '{print $3}') found"
 
+    # Build
+    cd "$SCRIPT_DIR/cc-clip"
+    echo "  Compiling cc-clip..."
+    make build || error "Build failed"
+    cd "$SCRIPT_DIR"
+
+    # Install
     mkdir -p "$INSTALL_DIR"
-    cp "$BINARY" "$INSTALL_DIR/cc-clip"
+    cp "$SCRIPT_DIR/cc-clip/cc-clip" "$INSTALL_DIR/cc-clip"
     chmod +x "$INSTALL_DIR/cc-clip"
 
     # macOS: remove quarantine and sign

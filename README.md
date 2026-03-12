@@ -29,7 +29,7 @@ Claude Code 在 macOS 上通过 `osascript -e 'the clipboard as «class PNGf»'`
 
 ## 前置条件
 
-- **本地**：macOS 13+，[Homebrew](https://brew.sh)
+- **本地**：macOS 13+，[Go 1.25+](https://go.dev/dl/)，[Homebrew](https://brew.sh)
 - **远程**：macOS，已在 `~/.ssh/config` 中配置 Host
 
 ## 安装
@@ -50,7 +50,7 @@ cd cc-clip-mac
 
 安装脚本会自动完成：
 
-1. 安装本地剪贴板服务和 pngpaste（二进制已包含在仓库中，无需额外下载）
+1. 从源码编译并安装本地剪贴板服务，安装 pngpaste
 2. 启动本地剪贴板 HTTP 服务
 3. 在 `~/.ssh/config` 中添加 `RemoteForward 18339`
 4. 验证 SSH 连接并确认远程是 macOS
@@ -81,9 +81,9 @@ cc-clip service uninstall
 
 | 文件 | 说明 |
 |------|------|
-| `install.sh` | 一键安装脚本，处理所有依赖和配置 |
+| `install.sh` | 一键安装脚本，编译源码 + 配置 + 部署 |
 | `osascript-shim.sh` | osascript 拦截器，部署后位于远程 `~/.local/bin/osascript` |
-| `bin/` | 预编译的 cc-clip daemon 二进制（darwin arm64/amd64） |
+| `cc-clip/` | cc-clip daemon 完整 Go 源码（本地剪贴板 HTTP 服务） |
 | `setup-remote-mac.sh` | 仅部署远程 shim（需已安装 cc-clip） |
 
 ## 常见问题
