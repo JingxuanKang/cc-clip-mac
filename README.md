@@ -29,50 +29,39 @@ Claude Code 在 macOS 上通过 `osascript -e 'the clipboard as «class PNGf»'`
 
 ## 前置条件
 
-- **本地 Mac**：macOS 13+
-- **远程 Mac**：macOS（通过 SSH 连接，如 `~/.ssh/config` 中已配置 Host）
-- **Homebrew**（本地需要，用于安装依赖）
+- **本地**：macOS 13+，[Homebrew](https://brew.sh)
+- **远程**：macOS，已在 `~/.ssh/config` 中配置 Host
 
 ## 安装
 
-### 1. 安装本地剪贴板服务
+一行命令，自动完成所有配置（安装依赖、启动本地服务、配置 SSH 隧道、部署远程 shim）：
 
 ```bash
-# 安装 cc-clip（本地剪贴板 HTTP 服务）
-curl -fsSL https://raw.githubusercontent.com/ShunmeiCho/cc-clip/main/scripts/install.sh | sh
-
-# 确保 ~/.local/bin 在 PATH 中
-export PATH="$HOME/.local/bin:$PATH"
-
-# 启动本地服务（会自动安装 pngpaste 依赖）
-cc-clip service install
+curl -fsSL https://raw.githubusercontent.com/JingxuanKang/cc-clip-mac/main/install.sh | sh -s <ssh-host>
 ```
 
-验证本地服务运行状态：
+例如，SSH Host 名为 `mini`：
 
 ```bash
-cc-clip status
-# 应显示: daemon: running on :18339
+curl -fsSL https://raw.githubusercontent.com/JingxuanKang/cc-clip-mac/main/install.sh | sh -s mini
 ```
 
-### 2. 部署到远程 Mac
+或者 clone 后运行：
 
 ```bash
-# 克隆本项目
 git clone https://github.com/JingxuanKang/cc-clip-mac.git
 cd cc-clip-mac
-
-# 运行安装脚本（替换 mini 为你的 SSH Host 名称）
-./setup-remote-mac.sh mini
+./install.sh mini
 ```
 
 安装脚本会自动完成：
 
-- 检查本地剪贴板服务状态
-- 在 `~/.ssh/config` 中为目标 Host 添加 `RemoteForward 18339 127.0.0.1:18339`
-- 通过 SSH 部署 osascript shim 到远程 `~/.local/bin/osascript`
-- 同步认证 token 到远程 `~/.cache/cc-clip/session.token`
-- 将 `~/.local/bin` 加入远程 PATH（`~/.zshrc`）
+1. 下载并安装本地剪贴板服务（cc-clip daemon）和 pngpaste
+2. 启动本地剪贴板 HTTP 服务
+3. 在 `~/.ssh/config` 中添加 `RemoteForward 18339`
+4. 验证 SSH 连接并确认远程是 macOS
+5. 部署 osascript shim 和认证 token 到远程
+6. 端到端验证
 
 ## 使用
 
@@ -98,8 +87,9 @@ cc-clip service uninstall
 
 | 文件 | 说明 |
 |------|------|
-| `setup-remote-mac.sh` | 一键部署脚本，配置 SSH 转发 + 部署远程 shim |
+| `install.sh` | 一键安装脚本，处理所有依赖和配置 |
 | `osascript-shim.sh` | osascript 拦截器，部署后位于远程 `~/.local/bin/osascript` |
+| `setup-remote-mac.sh` | 仅部署远程 shim（需已安装 cc-clip） |
 
 ## 常见问题
 
@@ -109,12 +99,12 @@ cc-clip service uninstall
 
 **Q: 远程是 Linux 怎么办？**
 
-Linux 远程主机直接使用 [cc-clip](https://github.com/ShunmeiCho/cc-clip) 原版即可：`cc-clip setup <host>`。
+安装脚本会自动检测远程系统。如果是 Linux，会提示你直接使用 `cc-clip setup <host>`。
 
 **Q: token 过期了怎么办？**
 
-重新运行 `./setup-remote-mac.sh mini` 即可重新同步 token。
+重新运行安装脚本即可。
 
 ## Acknowledgements
 
-本项目基于 [cc-clip](https://github.com/ShunmeiCho/cc-clip)（MIT License）构建，复用其本地剪贴板 HTTP 服务和 SSH 隧道机制，适配了 macOS 远程主机支持。
+本项目使用 [cc-clip](https://github.com/ShunmeiCho/cc-clip)（MIT License）作为本地剪贴板服务，在其基础上实现了 macOS 远程主机支持。
