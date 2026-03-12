@@ -1,7 +1,8 @@
 #!/bin/bash
 # cc-clip-mac installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/JingxuanKang/cc-clip-mac/main/install.sh | sh -s <ssh-host>
-#    or: ./install.sh <ssh-host>
+# Usage: ./install.sh <ssh-host>
+#
+# Must be run from the cloned repo directory (needs bin/ and osascript-shim.sh).
 
 set -e
 
@@ -14,9 +15,7 @@ fi
 
 PORT="${CC_CLIP_PORT:-18339}"
 INSTALL_DIR="$HOME/.local/bin"
-CC_CLIP_VERSION=""  # empty = auto-detect latest
-SCRIPT_DIR=""
-TMP_DIR=""
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Colors
 RED='\033[0;31m'
@@ -32,53 +31,36 @@ step()  { echo -e "\n${CYAN}[$1/$TOTAL_STEPS]${NC} $2"; }
 
 TOTAL_STEPS=6
 
-cleanup() { [ -n "$TMP_DIR" ] && rm -rf "$TMP_DIR"; }
-trap cleanup EXIT
-TMP_DIR=$(mktemp -d)
-
 # ─── Detect platform ───
 
-detect_platform() {
-    local os arch
-    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+detect_arch() {
+    local arch
     arch=$(uname -m)
     case "$arch" in
-        x86_64|amd64) arch="amd64" ;;
-        arm64|aarch64) arch="arm64" ;;
+        x86_64|amd64) echo "amd64" ;;
+        arm64|aarch64) echo "arm64" ;;
         *) error "Unsupported architecture: $arch" ;;
     esac
-    case "$os" in
-        darwin) ;;
-        *) error "Local machine must be macOS (got: $os)" ;;
-    esac
-    echo "${os}_${arch}"
 }
+
+# ─── Verify repo structure ───
+
+[ -f "$SCRIPT_DIR/osascript-shim.sh" ] || error "osascript-shim.sh not found. Run this script from the cloned repo directory."
+[ -d "$SCRIPT_DIR/bin" ] || error "bin/ directory not found. Run this script from the cloned repo directory."
 
 # ─── Step 1: Install cc-clip (local clipboard daemon) ───
 
 step 1 "Installing local clipboard daemon..."
 
-PLATFORM=$(detect_platform)
-
 if command -v cc-clip >/dev/null 2>&1; then
     info "cc-clip already installed: $(which cc-clip)"
 else
-    # Fetch latest version
-    if [ -z "$CC_CLIP_VERSION" ]; then
-        CC_CLIP_VERSION=$(curl -sf "https://api.github.com/repos/ShunmeiCho/cc-clip/releases/latest" | grep '"tag_name"' | sed 's/.*"v\(.*\)".*/\1/')
-        [ -z "$CC_CLIP_VERSION" ] && error "Failed to detect latest cc-clip version"
-    fi
-    info "Latest cc-clip version: v${CC_CLIP_VERSION}"
-
-    TARBALL="cc-clip_${CC_CLIP_VERSION}_${PLATFORM}.tar.gz"
-    URL="https://github.com/ShunmeiCho/cc-clip/releases/download/v${CC_CLIP_VERSION}/${TARBALL}"
-
-    echo "  Downloading ${TARBALL}..."
-    curl -fSL "$URL" -o "$TMP_DIR/$TARBALL" || error "Download failed: $URL"
-    tar -xzf "$TMP_DIR/$TARBALL" -C "$TMP_DIR"
+    ARCH=$(detect_arch)
+    BINARY="$SCRIPT_DIR/bin/cc-clip-darwin-${ARCH}"
+    [ -f "$BINARY" ] || error "Binary not found: $BINARY"
 
     mkdir -p "$INSTALL_DIR"
-    cp "$TMP_DIR/cc-clip" "$INSTALL_DIR/cc-clip"
+    cp "$BINARY" "$INSTALL_DIR/cc-clip"
     chmod +x "$INSTALL_DIR/cc-clip"
 
     # macOS: remove quarantine and sign
@@ -133,7 +115,6 @@ if grep -A10 "Host $HOST" "$SSH_CONFIG" 2>/dev/null | grep -q "RemoteForward.*${
     info "RemoteForward already configured"
 else
     if grep -q "^Host ${HOST}$" "$SSH_CONFIG" 2>/dev/null; then
-        # Add RemoteForward to existing Host block
         sed -i '' "/^Host ${HOST}$/a\\
 \\  RemoteForward ${PORT} 127.0.0.1:${PORT}" "$SSH_CONFIG"
         info "Added RemoteForward to existing Host $HOST"
@@ -157,7 +138,7 @@ info "SSH connection OK"
 # Verify remote is macOS
 REMOTE_OS=$(ssh "$HOST" "uname -s" 2>/dev/null)
 if [ "$REMOTE_OS" != "Darwin" ]; then
-    error "Remote host is $REMOTE_OS, not macOS. For Linux remote, use cc-clip directly: cc-clip setup $HOST"
+    error "Remote host is $REMOTE_OS, not macOS. For Linux remote, use: cc-clip setup $HOST"
 fi
 info "Remote is macOS"
 
@@ -171,17 +152,8 @@ ssh "$HOST" "mkdir -p ~/.local/bin ~/.cache/cc-clip"
 scp -q "$TOKEN_FILE" "$HOST:~/.cache/cc-clip/session.token"
 info "Token synced"
 
-# Determine script source (cloned repo or piped install)
-if [ -f "$(dirname "$0")/osascript-shim.sh" ]; then
-    SHIM_SRC="$(dirname "$0")/osascript-shim.sh"
-else
-    # Download from GitHub
-    SHIM_SRC="$TMP_DIR/osascript-shim.sh"
-    curl -fsSL "https://raw.githubusercontent.com/JingxuanKang/cc-clip-mac/main/osascript-shim.sh" -o "$SHIM_SRC" \
-        || error "Failed to download osascript shim"
-fi
-
-scp -q "$SHIM_SRC" "$HOST:~/.local/bin/osascript"
+# Deploy shim
+scp -q "$SCRIPT_DIR/osascript-shim.sh" "$HOST:~/.local/bin/osascript"
 ssh "$HOST" "chmod +x ~/.local/bin/osascript"
 info "osascript shim deployed"
 

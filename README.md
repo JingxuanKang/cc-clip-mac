@@ -34,19 +34,13 @@ Claude Code 在 macOS 上通过 `osascript -e 'the clipboard as «class PNGf»'`
 
 ## 安装
 
-一行命令，自动完成所有配置（安装依赖、启动本地服务、配置 SSH 隧道、部署远程 shim）：
-
 ```bash
-curl -fsSL https://raw.githubusercontent.com/JingxuanKang/cc-clip-mac/main/install.sh | sh -s <ssh-host>
+git clone https://github.com/JingxuanKang/cc-clip-mac.git
+cd cc-clip-mac
+./install.sh <ssh-host>
 ```
 
 例如，SSH Host 名为 `mini`：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/JingxuanKang/cc-clip-mac/main/install.sh | sh -s mini
-```
-
-或者 clone 后运行：
 
 ```bash
 git clone https://github.com/JingxuanKang/cc-clip-mac.git
@@ -56,7 +50,7 @@ cd cc-clip-mac
 
 安装脚本会自动完成：
 
-1. 下载并安装本地剪贴板服务（cc-clip daemon）和 pngpaste
+1. 安装本地剪贴板服务和 pngpaste（二进制已包含在仓库中，无需额外下载）
 2. 启动本地剪贴板 HTTP 服务
 3. 在 `~/.ssh/config` 中添加 `RemoteForward 18339`
 4. 验证 SSH 连接并确认远程是 macOS
@@ -89,6 +83,7 @@ cc-clip service uninstall
 |------|------|
 | `install.sh` | 一键安装脚本，处理所有依赖和配置 |
 | `osascript-shim.sh` | osascript 拦截器，部署后位于远程 `~/.local/bin/osascript` |
+| `bin/` | 预编译的 cc-clip daemon 二进制（darwin arm64/amd64） |
 | `setup-remote-mac.sh` | 仅部署远程 shim（需已安装 cc-clip） |
 
 ## 常见问题
